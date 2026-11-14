@@ -1,0 +1,19 @@
+Start testing: Nov 14 14:56 CST
+----------------------------------------------------------
+1/1 Testing: lru_cache
+1/1 Test: lru_cache
+Command: "/home/usixt/my_distributed_cache/build/test_lru_cache"
+Directory: /home/usixt/my_distributed_cache/build
+"lru_cache" start time: Nov 14 14:56 CST
+Output:
+----------------------------------------------------------
+PASS: LRUCache tests
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"lru_cache" end time: Nov 14 14:56 CST
+"lru_cache" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Nov 14 14:56 CST
