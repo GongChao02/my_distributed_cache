@@ -1,5 +1,6 @@
 /home/usixt/my_distributed_cache/build/CMakeFiles/gcache_core.dir
 /home/usixt/my_distributed_cache/build/CMakeFiles/test_lru_cache.dir
+/home/usixt/my_distributed_cache/build/CMakeFiles/test_consistent_hash.dir
 /home/usixt/my_distributed_cache/build/CMakeFiles/test.dir
 /home/usixt/my_distributed_cache/build/CMakeFiles/edit_cache.dir
 /home/usixt/my_distributed_cache/build/CMakeFiles/rebuild_cache.dir

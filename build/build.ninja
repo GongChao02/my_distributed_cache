@@ -56,6 +56,20 @@ build CMakeFiles/gcache_core.dir/src/cache.cpp.o: CXX_COMPILER__gcache_core_unsc
   OBJECT_DIR = CMakeFiles/gcache_core.dir
   OBJECT_FILE_DIR = CMakeFiles/gcache_core.dir/src
 
+build CMakeFiles/gcache_core.dir/src/singleflight.cpp.o: CXX_COMPILER__gcache_core_unscanned_Debug /home/usixt/my_distributed_cache/src/singleflight.cpp || cmake_object_order_depends_target_gcache_core
+  DEP_FILE = CMakeFiles/gcache_core.dir/src/singleflight.cpp.o.d
+  FLAGS = -g -std=c++17 -Wall -Wextra -Wpedantic
+  INCLUDES = -I/home/usixt/my_distributed_cache/src/include
+  OBJECT_DIR = CMakeFiles/gcache_core.dir
+  OBJECT_FILE_DIR = CMakeFiles/gcache_core.dir/src
+
+build CMakeFiles/gcache_core.dir/src/consistent_hash.cpp.o: CXX_COMPILER__gcache_core_unscanned_Debug /home/usixt/my_distributed_cache/src/consistent_hash.cpp || cmake_object_order_depends_target_gcache_core
+  DEP_FILE = CMakeFiles/gcache_core.dir/src/consistent_hash.cpp.o.d
+  FLAGS = -g -std=c++17 -Wall -Wextra -Wpedantic
+  INCLUDES = -I/home/usixt/my_distributed_cache/src/include
+  OBJECT_DIR = CMakeFiles/gcache_core.dir
+  OBJECT_FILE_DIR = CMakeFiles/gcache_core.dir/src
+
 
 # =============================================================================
 # Link build statements for STATIC_LIBRARY target gcache_core
@@ -64,7 +78,7 @@ build CMakeFiles/gcache_core.dir/src/cache.cpp.o: CXX_COMPILER__gcache_core_unsc
 #############################################
 # Link the static library libgcache_core.a
 
-build libgcache_core.a: CXX_STATIC_LIBRARY_LINKER__gcache_core_Debug CMakeFiles/gcache_core.dir/src/cache.cpp.o
+build libgcache_core.a: CXX_STATIC_LIBRARY_LINKER__gcache_core_Debug CMakeFiles/gcache_core.dir/src/cache.cpp.o CMakeFiles/gcache_core.dir/src/singleflight.cpp.o CMakeFiles/gcache_core.dir/src/consistent_hash.cpp.o
   LANGUAGE_COMPILE_FLAGS = -g
   OBJECT_DIR = CMakeFiles/gcache_core.dir
   POST_BUILD = :
@@ -83,7 +97,7 @@ build cmake_object_order_depends_target_test_lru_cache: phony || cmake_object_or
 
 build CMakeFiles/test_lru_cache.dir/tests/test_lru_cache.cpp.o: CXX_COMPILER__test_lru_cache_unscanned_Debug /home/usixt/my_distributed_cache/tests/test_lru_cache.cpp || cmake_object_order_depends_target_test_lru_cache
   DEP_FILE = CMakeFiles/test_lru_cache.dir/tests/test_lru_cache.cpp.o.d
-  FLAGS = -g -std=c++17
+  FLAGS = -g -std=c++17 -Wall -Wextra -Wpedantic
   INCLUDES = -I/home/usixt/my_distributed_cache/src/include
   OBJECT_DIR = CMakeFiles/test_lru_cache.dir
   OBJECT_FILE_DIR = CMakeFiles/test_lru_cache.dir/tests
@@ -104,6 +118,39 @@ build test_lru_cache: CXX_EXECUTABLE_LINKER__test_lru_cache_Debug CMakeFiles/tes
   PRE_LINK = :
   TARGET_FILE = test_lru_cache
   TARGET_PDB = test_lru_cache.dbg
+
+# =============================================================================
+# Object build statements for EXECUTABLE target test_consistent_hash
+
+
+#############################################
+# Order-only phony target for test_consistent_hash
+
+build cmake_object_order_depends_target_test_consistent_hash: phony || cmake_object_order_depends_target_gcache_core
+
+build CMakeFiles/test_consistent_hash.dir/tests/test_consistent_hash.cpp.o: CXX_COMPILER__test_consistent_hash_unscanned_Debug /home/usixt/my_distributed_cache/tests/test_consistent_hash.cpp || cmake_object_order_depends_target_test_consistent_hash
+  DEP_FILE = CMakeFiles/test_consistent_hash.dir/tests/test_consistent_hash.cpp.o.d
+  FLAGS = -g -std=c++17 -Wall -Wextra -Wpedantic
+  INCLUDES = -I/home/usixt/my_distributed_cache/src/include
+  OBJECT_DIR = CMakeFiles/test_consistent_hash.dir
+  OBJECT_FILE_DIR = CMakeFiles/test_consistent_hash.dir/tests
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target test_consistent_hash
+
+
+#############################################
+# Link the executable test_consistent_hash
+
+build test_consistent_hash: CXX_EXECUTABLE_LINKER__test_consistent_hash_Debug CMakeFiles/test_consistent_hash.dir/tests/test_consistent_hash.cpp.o | libgcache_core.a || libgcache_core.a
+  FLAGS = -g
+  LINK_LIBRARIES = libgcache_core.a
+  OBJECT_DIR = CMakeFiles/test_consistent_hash.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = test_consistent_hash
+  TARGET_PDB = test_consistent_hash.dbg
 
 
 #############################################
@@ -153,7 +200,7 @@ build gcache_core: phony libgcache_core.a
 #############################################
 # Folder: /home/usixt/my_distributed_cache/build
 
-build all: phony libgcache_core.a test_lru_cache
+build all: phony libgcache_core.a test_lru_cache test_consistent_hash
 
 # =============================================================================
 # Built-in targets
