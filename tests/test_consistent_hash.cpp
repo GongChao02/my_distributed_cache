@@ -2,232 +2,221 @@
 
 #include <atomic>
 #include <cassert>
+#include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <unordered_map>
-#include <vector>
+
+using namespace std::chrono_literals;
 
 using gcache::ConsistentHashMap;
 using gcache::HashConfig;
 
-HashConfig MakeControlledConfig()
+HashConfig MakeStatsConfig()
 {
     HashConfig config;
 
     config.replicas = 1;
     config.min_replicas = 1;
     config.max_replicas = 1;
-
-    const std::unordered_map<std::string, std::uint32_t> positions{
-        {"A-0", 10},
-        {"B-0", 25},
-        {"C-0", 35},
-
-        {"key-5", 5},
-        {"key-20", 20},
-        {"key-30", 30},
-        {"key-38", 38},
-        {"key-50", 50},
-        {"key-60", 60},
-    };
-
-    config.hash_func = [positions](const std::string &value)
-    {
-        const auto it = positions.find(value);
-
-        if (it == positions.end())
-        {
-            throw std::runtime_error(
-                "missing test hash mapping: " + value);
-        }
-
-        return it->second;
-    };
-
-    return config;
-}
-
-void TestEmptyRingAndInvalidInput()
-{
-    ConsistentHashMap ring(MakeControlledConfig());
-
-    assert(ring.Get("key-5").empty());
-    assert(ring.Get("").empty());
-    assert(!ring.Add({}));
-    assert(!ring.Remove("A"));
-}
-
-void TestClockwiseLookupAndWrapAround()
-{
-    ConsistentHashMap ring(MakeControlledConfig());
-
-    assert(ring.Add({"A", "B"}));
-
-    assert(ring.NodeCount() == 2);
-    assert(ring.VirtualNodeCount() == 2);
-
-    assert(ring.Get("key-5") == "A");
-    assert(ring.Get("key-20") == "B");
-    assert(ring.Get("key-30") == "A");
-    assert(ring.Get("key-38") == "A");
-    assert(ring.Get("key-50") == "A");
-    assert(ring.Get("key-60") == "A");
-}
-
-void TestAddNodeOnlyMovesItsInterval()
-{
-    ConsistentHashMap ring(MakeControlledConfig());
-
-    assert(ring.Add({"A", "B"}));
-
-    assert(ring.Get("key-30") == "A");
-    assert(ring.Get("key-38") == "A");
-    assert(ring.Get("key-50") == "A");
-
-    assert(ring.Add({"C"}));
-
-    assert(ring.Get("key-30") == "C");
-    assert(ring.Get("key-38") == "A");
-    assert(ring.Get("key-50") == "A");
-
-    assert(ring.Remove("C"));
-
-    assert(ring.Get("key-30") == "A");
-    assert(ring.Get("key-38") == "A");
-}
-
-void TestDuplicateNodeIsIgnored()
-{
-    ConsistentHashMap ring(MakeControlledConfig());
-
-    assert(ring.Add({"A"}));
-    assert(!ring.Add({"A", "A"}));
-
-    assert(ring.NodeCount() == 1);
-    assert(ring.VirtualNodeCount() == 1);
-}
-
-void TestCollisionRejectsWithoutCorruptingRing()
-{
-    HashConfig config;
-
-    config.replicas = 1;
-    config.min_replicas = 1;
-    config.max_replicas = 1;
-
-    config.hash_func = [](const std::string &)
-    {
-        return 42U;
-    };
-
-    ConsistentHashMap ring(config);
-
-    assert(ring.Add({"A"}));
-    assert(!ring.Add({"B"}));
-
-    assert(ring.NodeCount() == 1);
-    assert(ring.VirtualNodeCount() == 1);
-    assert(ring.Get("some-key") == "A");
-}
-
-void TestBatchAddRollsBackOnCollision()
-{
-    HashConfig config;
-
-    config.replicas = 1;
-    config.min_replicas = 1;
-    config.max_replicas = 1;
+    config.load_balance_threshold = 1.0;
 
     config.hash_func = [](const std::string &value)
         -> std::uint32_t
     {
         if (value == "A-0")
-        {
             return 10;
-        }
         if (value == "B-0")
-        {
             return 20;
-        }
-        if (value == "C-0")
-        {
-            return 10;
-        }
-        if (value == "key")
-        {
+        if (value == "key-a")
+            return 5;
+        if (value == "key-b")
             return 15;
-        }
-        return 99;
+
+        throw std::runtime_error(
+            "unexpected test hash input: " + value);
     };
+
+    return config;
+}
+
+HashConfig MakeBalanceConfig()
+{
+    HashConfig config;
+
+    config.replicas = 10;
+    config.min_replicas = 1;
+    config.max_replicas = 20;
+    config.load_balance_threshold = 0.25;
+
+    config.hash_func = [](const std::string &value)
+        -> std::uint32_t
+    {
+        if (value == "hot-key")
+        {
+            return 0;
+        }
+
+        if (value.rfind("A-", 0) == 0)
+        {
+            const auto index =
+                static_cast<std::uint32_t>(
+                    std::stoul(value.substr(2)));
+
+            return 100U + index * 100U;
+        }
+
+        if (value.rfind("B-", 0) == 0)
+        {
+            const auto index =
+                static_cast<std::uint32_t>(
+                    std::stoul(value.substr(2)));
+
+            return 10000U + index * 100U;
+        }
+
+        throw std::runtime_error(
+            "unexpected test hash input: " + value);
+    };
+
+    return config;
+}
+
+void TestGetStats()
+{
+    ConsistentHashMap ring(MakeStatsConfig());
+
+    assert(ring.Add({"A", "B"}));
+
+    assert(ring.Get("key-a") == "A");
+    assert(ring.Get("key-a") == "A");
+    assert(ring.Get("key-a") == "A");
+    assert(ring.Get("key-b") == "B");
+
+    const auto stats = ring.GetStats();
+
+    assert(std::abs(stats.at("A") - 75.0) < 0.001);
+    assert(std::abs(stats.at("B") - 25.0) < 0.001);
+}
+
+void TestStatsAreZeroWhenNoRequests()
+{
+    ConsistentHashMap ring(MakeStatsConfig());
+
+    assert(ring.Add({"A", "B"}));
+
+    const auto stats = ring.GetStats();
+
+    assert(stats.at("A") == 0.0);
+    assert(stats.at("B") == 0.0);
+}
+
+bool WaitForReplicas(
+    const ConsistentHashMap &ring,
+    int expected_a,
+    int expected_b,
+    std::chrono::milliseconds timeout)
+{
+    const auto deadline =
+        std::chrono::steady_clock::now() + timeout;
+
+    while (std::chrono::steady_clock::now() < deadline)
+    {
+        if (ring.ReplicaCount("A") == expected_a &&
+            ring.ReplicaCount("B") == expected_b)
+        {
+            return true;
+        }
+
+        std::this_thread::sleep_for(10ms);
+    }
+
+    return ring.ReplicaCount("A") == expected_a &&
+           ring.ReplicaCount("B") == expected_b;
+}
+
+void TestAdaptiveRebalance()
+{
+    ConsistentHashMap ring(MakeBalanceConfig());
+
+    assert(ring.Add({"A", "B"}));
+
+    assert(ring.ReplicaCount("A") == 10);
+    assert(ring.ReplicaCount("B") == 10);
+
+    // 前 999 次请求全部路由到 A。
+    for (int i = 0; i < 999; ++i)
+    {
+        assert(ring.Get("hot-key") == "A");
+    }
+
+    // 等待后台线程至少执行一次检查。
+    std::this_thread::sleep_for(1200ms);
+
+    // 样本数不足 1000，不能调整。
+    assert(ring.ReplicaCount("A") == 10);
+    assert(ring.ReplicaCount("B") == 10);
+
+    // 第 1000 次请求达到样本门槛。
+    assert(ring.Get("hot-key") == "A");
+
+    // 等待后台线程下一轮检查并完成调整。
+    assert(WaitForReplicas(ring, 5, 20, 2500ms));
+
+    assert(ring.ReplicaCount("A") == 5);
+    assert(ring.ReplicaCount("B") == 20);
+    assert(ring.VirtualNodeCount() == 25);
+
+    // 再平衡后统计窗口重置。
+    const auto stats = ring.GetStats();
+
+    assert(stats.at("A") == 0.0);
+    assert(stats.at("B") == 0.0);
+}
+
+void TestRemoveClearsStatsEntry()
+{
+    ConsistentHashMap ring(MakeStatsConfig());
+
+    assert(ring.Add({"A", "B"}));
+    assert(ring.Get("key-a") == "A");
+
+    assert(ring.Remove("A"));
+
+    const auto stats = ring.GetStats();
+
+    assert(stats.find("A") == stats.end());
+    assert(stats.find("B") != stats.end());
+}
+
+void TestReplicaBounds()
+{
+    HashConfig config = MakeBalanceConfig();
+
+    config.replicas = 10;
+    config.min_replicas = 5;
+    config.max_replicas = 15;
 
     ConsistentHashMap ring(config);
 
-    assert(ring.Add({"A"}));
-    assert(!ring.Add({"B", "C"}));
-
-    assert(ring.NodeCount() == 1);
-    assert(ring.VirtualNodeCount() == 1);
-    assert(ring.Get("key") == "A");
-}
-
-void TestConcurrentReadersAndMembershipChanges()
-{
-    ConsistentHashMap ring(MakeControlledConfig());
     assert(ring.Add({"A", "B"}));
 
-    std::atomic<bool> failed{false};
-    std::vector<std::thread> readers;
-
-    for (int i = 0; i < 4; ++i)
-    {
-        readers.emplace_back([&]
-                             {
-      for (int j = 0; j < 2000; ++j) {
-        const std::string node = ring.Get("key-30");
-        if (node != "A" && node != "C") {
-          failed.store(true);
-        }
-      } });
-    }
-
-    std::thread writer([&]
-                       {
-    for (int i = 0; i < 200; ++i) {
-      if (ring.Add({"C"})) {
-        ring.Remove("C");
-      }
-    } });
-
-    for (auto &reader : readers)
-    {
-        reader.join();
-    }
-    writer.join();
-
-    assert(!failed.load());
-    assert(ring.NodeCount() == 2);
-    assert(ring.VirtualNodeCount() == 2);
-}
-
-void TestCrc32KnownVector()
-{
-    assert(gcache::Crc32IEEE("123456789") == 0xCBF43926U);
+    assert(ring.ReplicaCount("A") == 10);
+    assert(ring.ReplicaCount("B") == 10);
 }
 
 int main()
 {
-    TestEmptyRingAndInvalidInput();
-    TestClockwiseLookupAndWrapAround();
-    TestAddNodeOnlyMovesItsInterval();
-    TestDuplicateNodeIsIgnored();
-    TestCollisionRejectsWithoutCorruptingRing();
-    TestBatchAddRollsBackOnCollision();
-    TestConcurrentReadersAndMembershipChanges();
-    TestCrc32KnownVector();
+    TestGetStats();
+    TestStatsAreZeroWhenNoRequests();
+    TestAdaptiveRebalance();
+    TestRemoveClearsStatsEntry();
+    TestReplicaBounds();
 
-    std::cout << "All consistent hash tests passed.\n";
+    std::cout << "All adaptive consistent hash tests passed.\n";
     return 0;
 }

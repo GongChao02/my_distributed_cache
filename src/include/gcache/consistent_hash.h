@@ -7,6 +7,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <atomic>
+#include <thread>
+#include <condition_variable>
 
 namespace gcache
 {
@@ -26,6 +29,7 @@ namespace gcache
     {
     public:
         explicit ConsistentHashMap(HashConfig config);
+        ~ConsistentHashMap();
         ConsistentHashMap(const ConsistentHashMap &) = delete;
         ConsistentHashMap &operator=(const ConsistentHashMap &) = delete;
 
@@ -33,17 +37,38 @@ namespace gcache
         bool Remove(const std::string &node);
         std::string Get(const std::string &key);
 
+        auto GetStats() const -> std::unordered_map<std::string, double>;
+
         std::size_t NodeCount() const;
         std::size_t VirtualNodeCount() const;
+        int ReplicaCount(const std::string &key) const;
 
     private:
-        bool AddNodeLocked(const std::string &node);
+        bool AddNodeLocked(const std::string &node, int replicas);
         void RemoveNodeLocked(const std::string &node);
+
+        bool ReplaceNodeReplicasLocked(const std::string &node, int new_replicas);
+
+        void CheckAndRebalance();
+        void RebalanceNodes();
+
+        void StartBalancer();
+        void StopBalancer();
 
         mutable std::shared_mutex mtx_;
         HashConfig config_;
         std::vector<std::uint32_t> keys_;
         std::unordered_map<std::uint32_t, std::string> hash_map_;
         std::unordered_map<std::string, int> node_replicas_;
+
+        std::unordered_map<std::string, std::atomic<long long>> node_counts_;
+
+        std::atomic<long long> total_requests_{0};
+
+        std::thread balancer_thread_;
+        std::atomic<bool> is_balancer_stop_{false};
+
+        std::mutex balancer_wait_mtx_;
+        std::condition_variable balancer_cv_;
     };
 };
